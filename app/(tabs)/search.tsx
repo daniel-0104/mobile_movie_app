@@ -3,20 +3,42 @@ import SearchBar from "@/components/SearchBar";
 import { icons } from "@/constants/icons";
 import { images } from "@/constants/images";
 import { fetchMovies } from "@/services/api";
+import { updateSearchCount } from "@/services/appwrite";
 import useFetch from "@/services/useFetch";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Text, View } from "react-native";
 
-const search = () => {
+const Search = () => {
+  const [searchQuery, setSearchQuery] = useState("");
+
   const {
     data: movies,
     loading,
     error,
+    refetch: loadMovies,
+    reset,
   } = useFetch(() =>
     fetchMovies({
-      query: "",
+      query: searchQuery,
     })
   );
+
+  useEffect(() => {
+    const timeoutId = setTimeout(async () => {
+      if (searchQuery.trim()) {
+        await loadMovies();
+
+        if (movies?.length > 0 && movies?.[0]) {
+          await updateSearchCount(searchQuery, movies[0]);
+        }
+      } else {
+        reset();
+      }
+    }, 500);
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
+
   return (
     <View className="flex-1 bg-primary">
       <Image
@@ -43,7 +65,11 @@ const search = () => {
               <Image source={icons.logo} className="w-12 h-10 mb-5 mx-auto" />
             </View>
             <View className="my-5">
-              <SearchBar placeholder="Search for a movie" />
+              <SearchBar
+                placeholder="Search for a movie"
+                value={searchQuery}
+                onChangeText={(text: string) => setSearchQuery(text)}
+              />
             </View>
             {loading && (
               <ActivityIndicator
@@ -57,20 +83,26 @@ const search = () => {
                 Error: {error.message}
               </Text>
             )}
-            {!loading &&
-              !error &&
-              "Search Term".trim() &&
-              movies?.length > 0 && (
-                <Text className="text-lg text-white font-bold mb-5">
-                  Search Results for : {``}
-                  <Text className="text-accent">Search Term</Text>
-                </Text>
-              )}
+            {!loading && !error && searchQuery.trim() && movies?.length > 0 && (
+              <Text className="text-lg text-white font-bold mb-5">
+                Search Results for : {""}
+                <Text className="text-accent">{searchQuery}</Text>
+              </Text>
+            )}
           </>
+        }
+        ListEmptyComponent={
+          !loading && !error ? (
+            <View className="mt-10 px-5">
+              <Text className="text-gray-500 text-center">
+                {searchQuery.trim() ? "No Movie Found" : "Search for a movie"}
+              </Text>
+            </View>
+          ) : null
         }
       />
     </View>
   );
 };
 
-export default search;
+export default Search;
